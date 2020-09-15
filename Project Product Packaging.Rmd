@@ -1,0 +1,110 @@
+---
+title: 'Project Machine Learning for Retail with R: Product Packaging'
+author: "Dormauli Sinta Bella N"
+output: word_document
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=10, fig.height=6, fig.path='Figs/',
+                      echo=TRUE, warning=FALSE, message=FALSE)
+library(tinytex)
+```
+
+# Permasalahan
+
+DQLab.id Fashion adalah sebuah toko fashion yang menjual berbagai produk seperti jeans, kemeja, kosmetik, dan lain-lain. Walaupun cukup berkembang, namun dengan semakin banyaknya kompetitor dan banyak produk yang stoknya masih banyak tentunya membuat kuatir Pak Agus, manajer DQLab.id Fashion. 
+
+Salah satu solusi adalah membuat paket yang inovatif. Dimana produk yang sebelumnya tidak terlalu laku tapi punya pangsa pasar malah bisa dipaketkan dan laku.
+
+Disini saya akan membuat paket barang yang inovatif dengan menggunakan R dan algoritma aproriari dari paket arules di sepanjang project ini.
+
+# Data
+
+Data yang digunakan terdiri atas 2 variabel, yaitu Kode Transaksi dan Nama Produk dengan jumlah baris 33,669 baris data (3,450 kode transaksi). Data yang diberikan adalah data transaksi selama 3 bulan.
+
+```{r}
+library(arules)
+transaksi_tabular <- read.transactions(file = "C:/Users/ASUS/Downloads/transaksi_dqlab_retail.tsv", format="single", sep="\t", cols=c(1,2), skip=1)
+transaksi_tabular
+
+```
+
+```{r}
+write(transaksi_tabular, file="C:/Users/ASUS/Downloads/test_project_retail_1.txt", sep=",")
+```
+
+# Goals
+- Mendapatkan insight top 10 dan bottom 10 dari produk yang terjual.
+- Mendapatkan daftar seluruh kombinasi paket produk dengan korelasi yang kuat.
+- Mendapatkan daftar seluruh kombinasi paket produk dengan item tertentu.
+
+# Output Awal: Statistik Top 10
+
+Disini Saya akan menampilkan 10 produk dengan jumlah transaksi paling banyak
+
+```{r}
+data_item <- itemFrequency(transaksi_tabular, type="absolute")
+data_item <- sort(data_item, decreasing = TRUE)
+data_item <- data_item[1:10]
+data_item <- data.frame("Nama Produk"=names(data_item), "Jumlah"=data_item, row.names=NULL)
+data_item
+```
+
+# Output Awal: Statistik Bottom 10
+
+Disini Saya akan menampilkan 10 produk dengan jumlah transaksi paling sedikit
+
+```{r}
+data_item <- itemFrequency(transaksi_tabular, type="absolute")
+data_item <- sort(data_item, decreasing = FALSE)
+data_item <- data_item[1:10]
+data_item <- data.frame("Nama Produk"=names(data_item), "Jumlah"=data_item, row.names=NULL)
+data_item
+```
+
+# Mendapatkan Kombinasi Produk yang Menarik
+
+Saya akan melakukan kombinasi untuk mendapatkan 10 paket kombinasi produk yang paling "menarik".
+
+Definisi menarik disini sebagai berikut:
+
+- Memiliki asosiasi atau hubungan erat.
+- Kombinasi produk minimal 2 item, dan maksimum 3 item.
+- Kombinasi produk itu muncul setidaknya 10 dari dari seluruh transaksi.
+- Memiliki tingkat confidence minimal 50 persen.
+
+```{r}
+apriori_rules <- apriori(transaksi_tabular, parameter = list(support=10/length(transaksi_tabular),conf=0.5, minlen=2, maxlen=3))
+apriori_rules <- head(sort(apriori_rules, by='lift', decreasing = T), n=10)
+inspect(apriori_rules)
+```
+
+# Mencari Paket Produk yang bisa dipasangkan dengan Item *Slow-Moving*
+
+Apa itu *Slow-Moving item*?
+*Slow-moving item* adalah produk yang pergerakan penjualannya lambat atau kurang cepat. Ini akan bermasalah apabila item produk tersebut masih menumpuk.
+
+Kadang kala item ini belum tentu tidak laku, hanya saja mungkin harganya tidak bagus dan jarang dibutuhkan jika dijual satuan.  Nah, jika tidak dijual satuan kita perlu cari asosiasi kuat dari item produk ini dengan produk lain sehingga jika dipaketkan akan menjadi lebih menarik.
+
+Misalkan item "Tas Makeup" dan "Baju Renang Pria Anak-anak" adalah item *Slow-Moving*.
+dan kita akan melakukan hal yang sama seperti sebelumnya dengan kriteria sebagai berikut:
+
+- Memiliki asosiasi atau hubungan erat.
+- Kombinasi produk minimal 2 item, dan maksimum 3 item.
+- Kombinasi produk itu muncul setidaknya 10 dari dari seluruh transaksi.
+- Memiliki tingkat confidence minimal 10 persen.
+
+Masing-masing produk tersebut dikeluarkan 3 rules yang asosiasinya paling kuat, sehingga total ada 6 rules dan kedua item tersebut berada di rhs.
+
+```{r}
+mba<- apriori(transaksi_tabular, parameter= list(supp=10/length(transaksi_tabular), conf=0.1, minlen=2, maxlen=3))
+mba1 <- head(subset(mba, rhs %in% "Tas Makeup"), by = "lift", n = 3L)
+mba2 <- head(subset(mba, rhs %in% "Baju Renang Pria Anak-anak"), by = "lift", n = 3L)
+mba = c(mba1, mba2)
+inspect(mba)
+```
+
+# Kesimpulan
+
+Dengan menggunakan algoritma apriori kita mendapatkan 10 kombinasi produk terbaik yang akan diberikan kepada manajer DQLab.id Fashion untuk dipertimbangkan kembali kombinasi apa yang akan nantinya digunakan dalam pasar.
+
